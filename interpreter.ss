@@ -19,8 +19,6 @@
         [else (error 'eval "Unknown expression type -- EVAL ~s" exp)]))
 
 (define (apply-custom procedure arguments)
-  (begin
-    (display procedure)
   (cond [(primitive-procedure? procedure) (apply-primitive-procedure procedure arguments)]
         [(compound-procedure? procedure)
          (let* ([body (procedure-body procedure)]
@@ -28,7 +26,7 @@
                 [proc-environment (procedure-environment procedure)]
                 [environment (extend-environment parameters arguments proc-environment)])
            (eval-sequence body environment))]
-        [else (error 'apply-custom "Unknown procedure type -- APPLY ~s" procedure)])))
+        [else (error 'apply-custom "Unknown procedure type -- APPLY ~s" procedure)]))
 
 (define (list-of-values exps env)
   (if (no-operands? exps)
@@ -48,9 +46,9 @@
   (eq? x #f))
 
 (define (eval-sequence exps env)
-  (cond ((last-exp? exps) (eval (first-exp exps) env))
-        (else (eval (first-exp exps) env)
-              (eval-sequence (rest-exps exps) env))))
+  (cond [(last-exp? exps) (eval (first-exp exps) env)]
+        [else (eval (first-exp exps) env)
+              (eval-sequence (rest-exps exps) env)]))
 
 (define (eval-assignment exp env)
   (set-variable-value! (assignment-variable exp)
@@ -65,9 +63,9 @@
   'ok)
 
 (define (self-evaluating? exp)
-  (cond ((number? exp) #t)
-        ((string? exp) #t)
-        (else #f)))
+  (cond [(number? exp) #t]
+        [(string? exp) #t]
+        [else #f]))
 
 (define (variable? exp) (symbol? exp))
 
@@ -123,9 +121,10 @@
 (define (rest-exps seq) (cdr seq))
 
 (define (sequence-exp seq)
-  (cond ((null? seq) seq)
-        ((last-exp? seq) (first-exp seq))
-        (else (make-begin seq))))
+  (cond [(null? seq) seq]
+        [(last-exp? seq) (first-exp seq)]
+        [else (make-begin seq)]))
+
 (define (make-begin seq) (cons 'begin seq))
 
 (define (application? exp) (pair? exp))
@@ -137,12 +136,10 @@
 
 (define (cond? exp) (tagged-list? exp 'cond))
 (define (cond-clauses exp) (cdr exp))
-(define (cond-else-caluse? clause)
-  (eq? (cond-predicate clause) 'else))
+(define (cond-else-caluse? clause) (eq? (cond-predicate clause) 'else))
 (define (cond-predicate clause) (car clause))
 (define (cond-action clause) (cdr clause))
-(define (cond->if exp)
-  (expand-clauses (cond-clauses exp)))
+(define (cond->if exp) (expand-clauses (cond-clauses exp)))
 
 (define (expand-clauses clauses)
   (if (null? clauses)
@@ -191,9 +188,9 @@
 (define (lookup-variable-value var env)
   (define (env-loop env)
     (define (scan vars vals)
-      (cond ((null? vars) (env-loop (enclosing-environment env)))
-            ((eq? var (car vars)) (car vals))
-            (else (scan (cdr vars) (cdr vals)))))
+      (cond [(null? vars) (env-loop (enclosing-environment env))]
+            [(eq? var (car vars)) (car vals)]
+            [else (scan (cdr vars) (cdr vals))]))
     (if (eq? env the-empty-environment)
         (error 'lookup-variable-value "Unbound variable ~s" var)
         (let ((frame (first-frame env)))
@@ -204,9 +201,9 @@
 (define (set-variable-value! var val env)
   (define (env-loop env)
     (define (scan vars vals)
-      (cond ((null? vars) (env-loop (enclosing-environment env)))
-            ((eq? var (car vars)) (set-car! vals val))
-            (else (scan (cdr vars) (cdr vals)))))
+      (cond [(null? vars) (env-loop (enclosing-environment env))]
+            [(eq? var (car vars)) (set-car! vals val)]
+            [else (scan (cdr vars) (cdr vals))]))
     (if (eq? env the-empty-environment)
         (error 'set-variable-value! "Unbound variable -- SET! ~s" var)
         (let ((frame (first-frame env)))
@@ -217,9 +214,9 @@
 (define (define-variable! var val env)
   (let ((frame (first-frame env)))
     (define (scan vars vals)
-      (cond ((null? vars) (add-binding-to-frame! var vals frame))
-            ((eq? var (car vars)) (set-car! vals val))
-            (else (scan (cdr vars) (cdr vals)))))
+      (cond [(null? vars) (add-binding-to-frame! var vals frame)]
+            [(eq? var (car vars)) (set-car! vals val)]
+            [else (scan (cdr vars) (cdr vals))]))
     (scan (frame-variables frame)
           (frame-values frame))))
 
@@ -246,35 +243,29 @@
        primitive-procedures))
 
 (define (apply-primitive-procedure proc args)
-  (begin
-    (display proc)
-    (display (primitive-implementation proc))
-             (apply-in-underlying-scheme (primitive-implementation proc) args)))
+  (primitive-implementation proc)
+  (apply-in-underlying-scheme (primitive-implementation proc) args))
 
 (define (setup-environment)
-  (let ((initial-env
-         (extend-environment (primitive-procedure-names)
-                             (primitive-procedure-objects)
-                             the-empty-environment)))
+  (let* ([names (primitive-procedure-names)]
+         [objects (primitive-procedure-objects)]
+         [initial-env (extend-environment names objects the-empty-environment)])
     (define-variable! 'true #t initial-env)
     (define-variable! 'false #f initial-env)
     initial-env))
 
 (define the-global-environment (setup-environment))
 
-(define input-prompt ";;; M-Eval input:")
-(define output-prompt ";;; M-Eval value:")
+(define input-prompt ">> ")
+
 (define (driver-loop)
   (prompt-for-input input-prompt)
-  (let ((input (read)))
-    (let ((output (eval input the-global-environment)))
-      (announce-output output-prompt)
-      (user-print output)))
+  (let* ([output (eval (read) the-global-environment)])
+    (user-print output))
   (driver-loop))
+
 (define (prompt-for-input string)
-  (newline) (newline) (display string) (newline))
-(define (announce-output string)
-  (newline) (display string) (newline))
+  (newline) (newline) (display string))
 
 (define (user-print object)
   (if (compound-procedure? object)
