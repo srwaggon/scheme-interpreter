@@ -57,7 +57,8 @@
   'ok)
 
 (define (eval-definition exp env)
-  (define-variable! (definition-variable exp)
+  (define-variable!
+    (definition-variable exp)
     (eval (definition-value exp) env)
     env)
   'ok)
@@ -167,16 +168,16 @@
 (define (procedure-environment p) (cadddr p))
 
 (define (enclosing-environment env) (cdr env))
-(define (first-frame env) (car env))
+(define (get-first-frame env) (car env))
 (define the-empty-environment '())
 
 (define (make-frame variables values)
-  (cons variables values))
-(define (frame-variables frame) (car frame))
-(define (frame-values frame) (cdr frame))
+  (list variables values))
+(define (get-frame-variables frame) (car frame))
+(define (get-frame-values frame) (cdr frame))
 (define (add-binding-to-frame! var val frame)
   (set-car! frame (cons var (car frame)))
-  (set-cdr! frame (cons val (cdr frame))))
+  (set-cdr! frame (cons val (cdr frame)))) ;; There is totally a bug here.
 
 (define (extend-environment vars vals base-env)
   (if (= (length vars) (length vals))
@@ -187,38 +188,41 @@
 
 (define (lookup-variable-value var env)
   (define (env-loop env)
-    (define (scan vars vals)
+    (define (scan-frame vars vals)
       (cond [(null? vars) (env-loop (enclosing-environment env))]
             [(eq? var (car vars)) (car vals)]
-            [else (scan (cdr vars) (cdr vals))]))
+            [else (scan-frame (cdr vars) (cdr vals))]))
     (if (eq? env the-empty-environment)
         (error 'lookup-variable-value "Unbound variable ~s" var)
-        (let ((frame (first-frame env)))
-          (scan (frame-variables frame)
-                (frame-values frame)))))
+        (let* ([frame (get-first-frame env)]
+               [variables (get-frame-variables frame)]
+               [values (get-frame-values frame)])
+          (scan-frame variables values))))
   (env-loop env))
 
 (define (set-variable-value! var val env)
   (define (env-loop env)
-    (define (scan vars vals)
+    (define (scan-frame vars vals)
       (cond [(null? vars) (env-loop (enclosing-environment env))]
             [(eq? var (car vars)) (set-car! vals val)]
-            [else (scan (cdr vars) (cdr vals))]))
+            [else (scan-frame (cdr vars) (cdr vals))]))
     (if (eq? env the-empty-environment)
         (error 'set-variable-value! "Unbound variable -- SET! ~s" var)
-        (let ((frame (first-frame env)))
-          (scan (frame-variables frame)
-                (frame-values frame)))))
+        (let* ([frame (get-first-frame env)]
+               [variables (get-frame-variables frame)]
+               [values (get-frame-values frame)])
+          (scan-frame variables values))))
   (env-loop env))
 
 (define (define-variable! var val env)
-  (let ((frame (first-frame env)))
-    (define (scan vars vals)
+  (let* ([frame (get-first-frame env)]
+         [variables (get-frame-variables frame)]
+         [values (get-frame-values frame)])
+    (define (scan-frame vars vals)
       (cond [(null? vars) (add-binding-to-frame! var vals frame)]
             [(eq? var (car vars)) (set-car! vals val)]
-            [else (scan (cdr vars) (cdr vals))]))
-    (scan (frame-variables frame)
-          (frame-values frame))))
+            [else (scan-frame (cdr vars) (cdr vals))]))
+    (scan-frame variables values)))
 
 (define (primitive-procedure? proc)
   (tagged-list? proc 'primitive))
@@ -276,4 +280,4 @@
       (display object)))
 
 (define the-global-environment (setup-environment))
-(driver-loop)
+;; (driver-loop)
