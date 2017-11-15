@@ -174,10 +174,10 @@
 (define (make-frame variables values)
   (list variables values))
 (define (get-frame-variables frame) (car frame))
-(define (get-frame-values frame) (cdr frame))
+(define (get-frame-values frame) (cadr frame))
 (define (add-binding-to-frame! var val frame)
   (set-car! frame (cons var (car frame)))
-  (set-cdr! frame (cons val (cdr frame)))) ;; There is totally a bug here.
+  (set-cdr! frame (list (cons val (cadr frame)))))
 
 (define (extend-environment vars vals base-env)
   (if (= (length vars) (length vals))
@@ -219,7 +219,7 @@
          [variables (get-frame-variables frame)]
          [values (get-frame-values frame)])
     (define (scan-frame vars vals)
-      (cond [(null? vars) (add-binding-to-frame! var vals frame)]
+      (cond [(null? vars) (add-binding-to-frame! var val frame)]
             [(eq? var (car vars)) (set-car! vals val)]
             [else (scan-frame (cdr vars) (cdr vals))]))
     (scan-frame variables values)))
@@ -237,6 +237,16 @@
         (list 'list list)
         (list '+ +)
         (list '- -)
+        (list '* *)
+        (list '/ /)
+        (list 'mod mod)
+        (list '= =)
+        (list '< <)
+        (list '> >)
+        (list '>= >=)
+        (list '<= <=)
+        (list 'zero? zero?)
+        (list 'eq? eq?)
         ))
 
 (define (primitive-procedure-names)
